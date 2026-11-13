@@ -58,7 +58,7 @@ class _NearbyScreenState extends State<NearbyScreen> with WidgetsBindingObserver
   String? _error;
   bool _needsApiKey = false;
   List<_StopResult> _results = [];
-  bool _schoolBusOnly = false;
+  bool _includeSchoolBuses = false;
   DateTime? _lastUpdated;
 
   TfNswClient? _client;
@@ -72,6 +72,9 @@ class _NearbyScreenState extends State<NearbyScreen> with WidgetsBindingObserver
   // list (e.g. a momentary empty response) and reappears later.
   final Set<String> _collapsedStopIds = {};
   final Map<String, ExpansibleController> _tileControllers = {};
+
+  final _schoolBusIconKey = GlobalKey();
+  OverlayEntry? _schoolBusTipEntry;
 
   ExpansibleController _controllerFor(String stopId) {
     return _tileControllers.putIfAbsent(stopId, () => ExpansibleController());
@@ -88,6 +91,10 @@ class _NearbyScreenState extends State<NearbyScreen> with WidgetsBindingObserver
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _settings.getIncludeSchoolBuses().then((value) {
+      if (mounted) setState(() => _includeSchoolBuses = value);
+    });
+    _maybeShowSchoolBusTip();
     _load();
   }
 
@@ -96,7 +103,60 @@ class _NearbyScreenState extends State<NearbyScreen> with WidgetsBindingObserver
     WidgetsBinding.instance.removeObserver(this);
     _tickTimer?.cancel();
     _refreshTimer?.cancel();
+    _schoolBusTipEntry?.remove();
     super.dispose();
+  }
+
+  /// Shows a one-time explainer bubble pointing at the school bus button,
+  /// the first time the screen opens after this feature was added. Never
+  /// shown again once dismissed.
+  void _maybeShowSchoolBusTip() async {
+    final hasSeen = await _settings.getHasSeenSchoolBusTip();
+    if (hasSeen || !mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final renderBox = _schoolBusIconKey.currentContext?.findRenderObject() as RenderBox?;
+      if (renderBox == null) return;
+
+      final iconPosition = renderBox.localToGlobal(Offset.zero);
+      final iconSize = renderBox.size;
+      final screenWidth = MediaQuery.of(context).size.width;
+
+      const bubbleWidth = 260.0;
+      final arrowCenterX = iconPosition.dx + iconSize.width / 2;
+      final bubbleLeft = (arrowCenterX - bubbleWidth / 2).clamp(12.0, screenWidth - bubbleWidth - 12.0);
+      final arrowLeftOffset = (arrowCenterX - bubbleLeft - 8).clamp(12.0, bubbleWidth - 28.0);
+
+      void dismiss() {
+        _schoolBusTipEntry?.remove();
+        _schoolBusTipEntry = null;
+        _settings.setHasSeenSchoolBusTip(true);
+      }
+
+      final entry = OverlayEntry(
+        builder: (context) => Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(behavior: HitTestBehavior.translucent, onTap: dismiss),
+            ),
+            Positioned(
+              top: iconPosition.dy + iconSize.height + 4,
+              left: bubbleLeft,
+              width: bubbleWidth,
+              child: _SpeechBubble(
+                message:
+                "This button shows school buses in your timetable. Don't worry, we'll remember whether you catch school buses.",
+                arrowLeftOffset: arrowLeftOffset,
+                onDismiss: dismiss,
+              ),
+            ),
+          ],
+        ),
+      );
+      _schoolBusTipEntry = entry;
+      Overlay.of(context).insert(entry);
+    });
   }
 
   @override
@@ -259,9 +319,14 @@ class _NearbyScreenState extends State<NearbyScreen> with WidgetsBindingObserver
             onPressed: _expandAll,
           ),
           IconButton(
-            tooltip: _schoolBusOnly ? 'Show all modes' : 'School buses only',
-            icon: Icon(Icons.school, color: _schoolBusOnly ? Theme.of(context).colorScheme.primary : null),
-            onPressed: () => setState(() => _schoolBusOnly = !_schoolBusOnly),
+            key: _schoolBusIconKey,
+            tooltip: _includeSchoolBuses ? 'Hide school buses' : 'Show school buses too',
+            icon: Icon(Icons.school, color: _includeSchoolBuses ? Theme.of(context).colorScheme.primary : null),
+            onPressed: () {
+              final value = !_includeSchoolBuses;
+              setState(() => _includeSchoolBuses = value);
+              _settings.setIncludeSchoolBuses(value);
+            },
           ),
           IconButton(
             tooltip: 'Settings',
@@ -297,23 +362,23 @@ class _NearbyScreenState extends State<NearbyScreen> with WidgetsBindingObserver
       );
     }
 
-    final visibleResults = _schoolBusOnly
+    final visibleResults = _includeSchoolBuses
         ? _results
+        : _results
         .map((r) => _StopResult(
       stop: r.stop,
-      departures: r.departures.where((d) => d.mode == TransportMode.schoolBus).toList(),
+      departures: r.departures.where((d) => d.mode != TransportMode.schoolBus).toList(),
       error: r.error,
     ))
         .where((r) => r.departures.isNotEmpty)
-        .toList()
-        : _results;
+        .toList();
 
     if (visibleResults.isEmpty) {
       return _CenteredMessage(
-        icon: _schoolBusOnly ? Icons.school : Icons.location_searching,
-        message: _schoolBusOnly
-            ? 'No school bus services found at nearby stops right now.'
-            : 'No upcoming departures found at stops near you.',
+        icon: _includeSchoolBuses ? Icons.location_searching : Icons.school,
+        message: _includeSchoolBuses
+            ? 'No upcoming departures found at stops near you.'
+            : 'No regular services found at stops near you right now — there may be school buses nearby (tap the school icon above to include them).',
         actionLabel: 'Refresh',
         onAction: _load,
       );
@@ -439,6 +504,69 @@ class _DepartureRow extends StatelessWidget {
       ),
     );
   }
+}
+class _SpeechBubble extends StatelessWidget {
+  final String message;
+  final double arrowLeftOffset;
+  final VoidCallback onDismiss;
+
+  const _SpeechBubble({
+    required this.message,
+    required this.arrowLeftOffset,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: GestureDetector(
+        onTap: onDismiss,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.only(left: arrowLeftOffset),
+              child: CustomPaint(
+                size: const Size(16, 8),
+                painter: _TrianglePainter(color: theme.colorScheme.primaryContainer),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 8, offset: const Offset(0, 2)),
+                ],
+              ),
+              child: Text(message, style: TextStyle(color: theme.colorScheme.onPrimaryContainer)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TrianglePainter extends CustomPainter {
+  final Color color;
+  const _TrianglePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(size.width / 2, 0)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TrianglePainter oldDelegate) => oldDelegate.color != color;
 }
 
 class _CenteredMessage extends StatelessWidget {

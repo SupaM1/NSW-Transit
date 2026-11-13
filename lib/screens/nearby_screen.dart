@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 
 import '../core/location_service.dart';
@@ -45,7 +47,10 @@ class NearbyScreen extends StatefulWidget {
   State<NearbyScreen> createState() => _NearbyScreenState();
 }
 
-class _NearbyScreenState extends State<NearbyScreen> {
+class _NearbyScreenState extends State<NearbyScreen> with WidgetsBindingObserver {
+  static const _tickInterval = Duration(seconds: 20);
+  static const _refreshInterval = Duration(seconds: 30);
+
   final _location = LocationService();
   final _settings = SettingsStore();
 
@@ -54,14 +59,59 @@ class _NearbyScreenState extends State<NearbyScreen> {
   bool _needsApiKey = false;
   List<_StopResult> _results = [];
   bool _schoolBusOnly = false;
+  DateTime? _lastUpdated;
+
+  TfNswClient? _client;
+  List<NearbyStop> _stops = [];
+  Timer? _tickTimer;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _tickTimer?.cancel();
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startLiveUpdates();
+      _refreshDepartures();
+    } else {
+      _stopLiveUpdates();
+    }
+  }
+
+  void _startLiveUpdates() {
+    _stopLiveUpdates();
+    // Ticks the UI so each departure's countdown keeps counting down even
+    // between network refreshes.
+    _tickTimer = Timer.periodic(_tickInterval, (_) {
+      if (mounted) setState(() {});
+    });
+    // Quietly re-fetches real departure data (picking up real-time delays)
+    // without showing a loading spinner or losing scroll position.
+    _refreshTimer = Timer.periodic(_refreshInterval, (_) => _refreshDepartures());
+  }
+
+  void _stopLiveUpdates() {
+    _tickTimer?.cancel();
+    _refreshTimer?.cancel();
+    _tickTimer = null;
+    _refreshTimer = null;
+  }
+
   Future<void> _load() async {
+    _stopLiveUpdates();
     setState(() {
       _loading = true;
       _error = null;
@@ -88,23 +138,17 @@ class _NearbyScreenState extends State<NearbyScreen> {
       );
 
       final nearest = stops.take(10).toList();
-      final results = await _withLimitedConcurrency<_StopResult>(
-        nearest.map((stop) => () async {
-          try {
-            final departures = await client.departures(stopId: stop.id);
-            return _StopResult(stop: stop, departures: departures);
-          } catch (e) {
-            return _StopResult(stop: stop, departures: const [], error: e.toString());
-          }
-        }).toList(),
-        concurrency: 3,
-      );
+      final results = await _fetchDepartures(client, nearest);
 
       if (!mounted) return;
+      _client = client;
+      _stops = nearest;
       setState(() {
-        _results = results.where((r) => r.departures.isNotEmpty || r.error != null).toList();
+        _results = results;
+        _lastUpdated = DateTime.now();
         _loading = false;
       });
+      _startLiveUpdates();
     } on LocationUnavailableException catch (e) {
       setState(() {
         _loading = false;
@@ -124,7 +168,50 @@ class _NearbyScreenState extends State<NearbyScreen> {
     }
   }
 
+  Future<List<_StopResult>> _fetchDepartures(TfNswClient client, List<NearbyStop> stops) async {
+    final results = await _withLimitedConcurrency<_StopResult>(
+      stops.map((stop) => () async {
+        try {
+          final departures = await client.departures(stopId: stop.id);
+          return _StopResult(stop: stop, departures: departures);
+        } catch (e) {
+          return _StopResult(stop: stop, departures: const [], error: e.toString());
+        }
+      }).toList(),
+      concurrency: 3,
+    );
+    return results.where((r) => r.departures.isNotEmpty || r.error != null).toList();
+  }
+
+  /// Re-fetches departures for the stops already found, without re-running
+  /// location lookup or showing a loading state. Failures are ignored so a
+  /// momentary network hiccup doesn't disrupt what's already on screen.
+  Future<void> _refreshDepartures() async {
+    final client = _client;
+    if (client == null || _stops.isEmpty) return;
+    try {
+      final results = await _fetchDepartures(client, _stops);
+      if (!mounted) return;
+      setState(() {
+        _results = results;
+        _lastUpdated = DateTime.now();
+      });
+    } catch (_) {
+      // Keep showing the last good data; the next tick will try again.
+    }
+  }
+
+  String? _lastUpdatedLabel() {
+    final updated = _lastUpdated;
+    if (updated == null) return null;
+    final diff = DateTime.now().difference(updated);
+    if (diff.inSeconds < 10) return 'Updated just now';
+    if (diff.inMinutes < 1) return 'Updated ${diff.inSeconds}s ago';
+    return 'Updated ${diff.inMinutes}m ago';
+  }
+
   void _openSettings() async {
+    _stopLiveUpdates();
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
     _load();
   }
@@ -133,7 +220,20 @@ class _NearbyScreenState extends State<NearbyScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nearby departures'),
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Nearby departures'),
+            if (_lastUpdatedLabel() != null)
+              Text(
+                _lastUpdatedLabel()!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+          ],
+        ),
         actions: [
           IconButton(
             tooltip: _schoolBusOnly ? 'Show all modes' : 'School buses only',

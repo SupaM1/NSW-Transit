@@ -46,9 +46,7 @@ Your key is stored only in this app's local storage on your device.
 ## Getting started (development)
 
 This is a [Flutter](https://flutter.dev) app. **Android is the only
-supported platform for now** — iOS and other platforms are a deliberate
-later step (see [Roadmap](#roadmap) below), not a technical limitation of
-the code itself, which is plain Dart/Flutter with nothing
+supported platform for now** — iOS and other platforms may be added later.
 Android-specific in `lib/`.
 
 ```bash

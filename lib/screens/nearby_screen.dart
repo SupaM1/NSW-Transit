@@ -66,6 +66,24 @@ class _NearbyScreenState extends State<NearbyScreen> with WidgetsBindingObserver
   Timer? _tickTimer;
   Timer? _refreshTimer;
 
+  // Explicit, stop-ID-keyed expand/collapse state. Kept here (rather than
+  // relying on each ExpansionTile's own internal state) so a stop's
+  // collapsed state survives even if it briefly drops out of the results
+  // list (e.g. a momentary empty response) and reappears later.
+  final Set<String> _collapsedStopIds = {};
+  final Map<String, ExpansibleController> _tileControllers = {};
+
+  ExpansibleController _controllerFor(String stopId) {
+    return _tileControllers.putIfAbsent(stopId, () => ExpansibleController());
+  }
+
+  void _expandAll() {
+    setState(() => _collapsedStopIds.clear());
+    for (final controller in _tileControllers.values) {
+      if (!controller.isExpanded) controller.expand();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -236,6 +254,11 @@ class _NearbyScreenState extends State<NearbyScreen> with WidgetsBindingObserver
         ),
         actions: [
           IconButton(
+            tooltip: 'Expand all',
+            icon: const Icon(Icons.unfold_more),
+            onPressed: _expandAll,
+          ),
+          IconButton(
             tooltip: _schoolBusOnly ? 'Show all modes' : 'School buses only',
             icon: Icon(Icons.school, color: _schoolBusOnly ? Theme.of(context).colorScheme.primary : null),
             onPressed: () => setState(() => _schoolBusOnly = !_schoolBusOnly),
@@ -301,7 +324,25 @@ class _NearbyScreenState extends State<NearbyScreen> with WidgetsBindingObserver
       child: ListView.builder(
         padding: const EdgeInsets.all(12),
         itemCount: visibleResults.length,
-        itemBuilder: (context, index) => _StopCard(result: visibleResults[index]),
+        itemBuilder: (context, index) {
+          final result = visibleResults[index];
+          final stopId = result.stop.id;
+          return _StopCard(
+            key: ValueKey(stopId),
+            result: result,
+            controller: _controllerFor(stopId),
+            initiallyExpanded: !_collapsedStopIds.contains(stopId),
+            onExpansionChanged: (expanded) {
+              setState(() {
+                if (expanded) {
+                  _collapsedStopIds.remove(stopId);
+                } else {
+                  _collapsedStopIds.add(stopId);
+                }
+              });
+            },
+          );
+        },
       ),
     );
   }
@@ -309,34 +350,40 @@ class _NearbyScreenState extends State<NearbyScreen> with WidgetsBindingObserver
 
 class _StopCard extends StatelessWidget {
   final _StopResult result;
-  const _StopCard({required this.result});
+  final ExpansibleController controller;
+  final bool initiallyExpanded;
+  final ValueChanged<bool> onExpansionChanged;
+
+  const _StopCard({
+    super.key,
+    required this.result,
+    required this.controller,
+    required this.initiallyExpanded,
+    required this.onExpansionChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
     final stop = result.stop;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(stop.name, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                ),
-                if (stop.distanceMetres != null)
-                  Text('${stop.distanceMetres!.round()} m', style: Theme.of(context).textTheme.bodySmall),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (result.error != null)
-              Text(result.error!, style: TextStyle(color: Theme.of(context).colorScheme.error))
-            else
-              ...result.departures.map((d) => _DepartureRow(departure: d)),
-          ],
-        ),
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        controller: controller,
+        initiallyExpanded: initiallyExpanded,
+        onExpansionChanged: onExpansionChanged,
+        title: Text(stop.name, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+        subtitle: stop.distanceMetres != null ? Text('${stop.distanceMetres!.round()} m away') : null,
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        children: [
+          if (result.error != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(result.error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            )
+          else
+            ...result.departures.map((d) => _DepartureRow(departure: d)),
+        ],
       ),
     );
   }

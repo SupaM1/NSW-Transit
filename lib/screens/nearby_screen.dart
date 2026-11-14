@@ -60,6 +60,7 @@ class _NearbyScreenState extends State<NearbyScreen> with WidgetsBindingObserver
   List<_StopResult> _results = [];
   bool _includeSchoolBuses = false;
   DateTime? _lastUpdated;
+  DateTime? _selectedAt;
 
   TfNswClient? _client;
   List<NearbyStop> _stops = [];
@@ -250,7 +251,7 @@ class _NearbyScreenState extends State<NearbyScreen> with WidgetsBindingObserver
     final results = await _withLimitedConcurrency<_StopResult>(
       stops.map((stop) => () async {
         try {
-          final departures = await client.departures(stopId: stop.id);
+          final departures = await client.departures(stopId: stop.id, at: _selectedAt);
           return _StopResult(stop: stop, departures: departures);
         } catch (e) {
           return _StopResult(stop: stop, departures: const [], error: e.toString());
@@ -294,6 +295,75 @@ class _NearbyScreenState extends State<NearbyScreen> with WidgetsBindingObserver
     _load();
   }
 
+  /// Lets the user look up departures at a future date/time instead of
+  /// right now. Transport for NSW's timetable data only looks a couple of
+  /// weeks ahead, so that's the window offered here.
+  Future<void> _pickDateTime() async {
+    final now = DateTime.now();
+    final initial = (_selectedAt ?? now).isBefore(now) ? now : (_selectedAt ?? now);
+
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 14)),
+    );
+    if (date == null || !mounted) return;
+
+    final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(initial));
+    if (time == null || !mounted) return;
+
+    setState(() => _selectedAt = DateTime(date.year, date.month, date.day, time.hour, time.minute));
+    _applySelectedTimeChange();
+  }
+
+  void _clearSelectedTime() {
+    setState(() => _selectedAt = null);
+    _applySelectedTimeChange();
+  }
+
+  String _formatSelectedAt(DateTime dt) {
+    final now = DateTime.now();
+    final isToday = dt.year == now.year && dt.month == now.month && dt.day == now.day;
+    final hour12 = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+    final minute = dt.minute.toString().padLeft(2, '0');
+    final period = dt.hour < 12 ? 'am' : 'pm';
+    final time = '$hour12:$minute$period';
+    if (isToday) return 'Today, $time';
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return '${weekdays[dt.weekday - 1]} ${dt.day}, $time';
+  }
+
+  /// Re-fetches departures for the stops already found, using whatever
+  /// [_selectedAt] now holds (or live/now if it's been cleared).
+  Future<void> _applySelectedTimeChange() async {
+    final client = _client;
+    if (client == null || _stops.isEmpty) return;
+
+    setState(() => _loading = true);
+    try {
+      final results = await _fetchDepartures(client, _stops);
+      if (!mounted) return;
+      setState(() {
+        _results = results;
+        _lastUpdated = DateTime.now();
+        _loading = false;
+      });
+    } on TfNswApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.message;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Something went wrong: $e';
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -335,7 +405,31 @@ class _NearbyScreenState extends State<NearbyScreen> with WidgetsBindingObserver
           ),
         ],
       ),
-      body: _buildBody(),
+        body: Column(
+          children: [
+            if (_stops.isNotEmpty) _buildTimeFilterChip(context),
+            Expanded(child: _buildBody()),
+          ],
+        ),
+    );
+  }
+
+  Widget _buildTimeFilterChip(BuildContext context) {
+    final selectedAt = _selectedAt;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: FilterChip(
+          avatar: const Icon(Icons.access_time, size: 18),
+          label: Text(selectedAt != null ? _formatSelectedAt(selectedAt) : 'Time'),
+          selected: selectedAt != null,
+          showCheckmark: false,
+          onSelected: (_) => _pickDateTime(),
+          deleteIcon: selectedAt != null ? const Icon(Icons.close, size: 18) : null,
+          onDeleted: selectedAt != null ? _clearSelectedTime : null,
+        ),
+      ),
     );
   }
 
@@ -505,6 +599,7 @@ class _DepartureRow extends StatelessWidget {
     );
   }
 }
+
 class _SpeechBubble extends StatelessWidget {
   final String message;
   final double arrowLeftOffset;

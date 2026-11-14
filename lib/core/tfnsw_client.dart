@@ -104,11 +104,12 @@ class TfNswClient {
   Future<List<Departure>> departures({
     required String stopId,
     int maxResults = 12,
+    DateTime? at,
   }) async {
-    final now = DateTime.now();
+    final when = at ?? DateTime.now();
     String two(int n) => n.toString().padLeft(2, '0');
-    final itdDate = '${now.year}${two(now.month)}${two(now.day)}';
-    final itdTime = '${two(now.hour)}${two(now.minute)}';
+    final itdDate = '${when.year}${two(when.month)}${two(when.day)}';
+    final itdTime = '${two(when.hour)}${two(when.minute)}';
 
     final json = await _get('departure_mon', {
       'outputFormat': 'rapidJSON',

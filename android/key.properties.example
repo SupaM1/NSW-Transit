@@ -1,0 +1,8 @@
+# Copy this file to "key.properties" in this same folder, then replace
+# every value below with your own release keystore's details.
+# key.properties is gitignored and must never be committed — only this
+# .example file (with no real secrets in it) belongs in the repo.
+storePassword=your-keystore-password
+keyPassword=your-key-password
+keyAlias=upload
+storeFile=/absolute/path/to/your/release-key.jks

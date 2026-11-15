@@ -1,4 +1,9 @@
 # NSW Transit
+# NSW Transit
+
+[![Build status](https://github.com/SupaM1/NSW-Transit/actions/workflows/CI.yml/badge.svg)](https://github.com/SupaM1/NSW-Transit/actions/workflows/CI.yml)
+[![Latest release](https://img.shields.io/github/v/release/SupaM1/NSW-Transit)](https://github.com/SupaM1/NSW-Transit/releases/latest)
+[![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 
 A free, open-source, ad-free public transport app for New South Wales,
 Australia — covering trains, metro, buses, light rail, ferries, coaches

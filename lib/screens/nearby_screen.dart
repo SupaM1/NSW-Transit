@@ -382,56 +382,71 @@ class _NearbyScreenState extends State<NearbyScreen> with WidgetsBindingObserver
               ),
           ],
         ),
-        actions: [
-          IconButton(
-            tooltip: 'Expand all',
-            icon: const Icon(Icons.unfold_more),
-            onPressed: _expandAll,
-          ),
-          IconButton(
-            key: _schoolBusIconKey,
-            tooltip: _includeSchoolBuses ? 'Hide school buses' : 'Show school buses too',
-            icon: Icon(Icons.school, color: _includeSchoolBuses ? Theme.of(context).colorScheme.primary : null),
-            onPressed: () {
-              final value = !_includeSchoolBuses;
-              setState(() => _includeSchoolBuses = value);
-              _settings.setIncludeSchoolBuses(value);
-            },
-          ),
-          IconButton(
-            tooltip: 'Settings',
-            icon: const Icon(Icons.settings),
-            onPressed: _openSettings,
-          ),
-        ],
-      ),
-        body: Column(
-          children: [
-            if (_stops.isNotEmpty) _buildTimeFilterChip(context),
-            Expanded(child: _buildBody()),
-          ],
-        ),
-    );
-  }
+actions: [
+IconButton(
+tooltip: 'Expand all',
+icon: const Icon(Icons.unfold_more),
+onPressed: _expandAll,
+),
+IconButton(
+tooltip: 'Settings',
+icon: const Icon(Icons.settings),
+onPressed: _openSettings,
+),
+],
+),
+body: Column(
+children: [
+if (_stops.isNotEmpty) _buildFilterBar(context),
+Expanded(child: _buildBody()),
+],
+),
+);
+}
 
-  Widget _buildTimeFilterChip(BuildContext context) {
-    final selectedAt = _selectedAt;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: FilterChip(
-          avatar: const Icon(Icons.access_time, size: 18),
-          label: Text(selectedAt != null ? _formatSelectedAt(selectedAt) : 'Time'),
-          selected: selectedAt != null,
-          showCheckmark: false,
-          onSelected: (_) => _pickDateTime(),
-          deleteIcon: selectedAt != null ? const Icon(Icons.close, size: 18) : null,
-          onDeleted: selectedAt != null ? _clearSelectedTime : null,
-        ),
-      ),
-    );
-  }
+Widget _buildFilterBar(BuildContext context) {
+return Padding(
+padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+child: Align(
+alignment: Alignment.centerLeft,
+child: Wrap(
+spacing: 8,
+children: [
+_buildTimeFilterChip(context),
+_buildSchoolBusFilterChip(context),
+],
+),
+),
+);
+}
+
+Widget _buildTimeFilterChip(BuildContext context) {
+final selectedAt = _selectedAt;
+return FilterChip(
+avatar: const Icon(Icons.access_time, size: 18),
+label: Text(selectedAt != null ? _formatSelectedAt(selectedAt) : 'Time'),
+selected: selectedAt != null,
+showCheckmark: false,
+onSelected: (_) => _pickDateTime(),
+deleteIcon: selectedAt != null ? const Icon(Icons.close, size: 18) : null,
+onDeleted: selectedAt != null ? _clearSelectedTime : null,
+);
+}
+
+Widget _buildSchoolBusFilterChip(BuildContext context) {
+return FilterChip(
+key: _schoolBusIconKey,
+tooltip: _includeSchoolBuses ? 'Hide school buses' : 'Show school buses too',
+avatar: const Icon(Icons.school, size: 18),
+label: const Text('School buses'),
+selected: _includeSchoolBuses,
+showCheckmark: false,
+onSelected: (value) {
+setState(() => _includeSchoolBuses = value);
+_settings.setIncludeSchoolBuses(value);
+},
+);
+}
 
   Widget _buildBody() {
     if (_loading) {

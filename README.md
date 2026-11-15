@@ -3,8 +3,7 @@
 [![Build status](https://github.com/SupaM1/NSW-Transit/actions/workflows/CI.yml/badge.svg)](https://github.com/SupaM1/NSW-Transit/actions/workflows/CI.yml)
 [![Latest release](https://img.shields.io/github/v/release/SupaM1/NSW-Transit)](https://github.com/SupaM1/NSW-Transit/releases/latest)
 [![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Platform](https://img.shields.io/badge/platform-Android-brightgreen.svg)](#)
+[![Platform](https://img.shields.io/badge/platform-Android-brightgreen.svg)](https://github.com/SupaM1/NSW-Transit/releases)
 [![Built with Flutter](https://img.shields.io/badge/built%20with-Flutter-02569B.svg)](https://flutter.dev)
 
 ## Why this exists
@@ -67,7 +66,7 @@ PRs are welcome, as long as they keep to the project's non-negotiables:
 - No telemetry or analytics
 - No mandatory accounts
 - No server in the middle that sees user data
-  Open an issue first for anything bigger than a small fix, so we're aligned before you put the work in.
+- Open an issue first for anything bigger than a small fix, so we're aligned before you put the work in.
 
 ## Disclaimer
 

@@ -3,9 +3,9 @@
 [![Build status](https://github.com/SupaM1/NSW-Transit/actions/workflows/CI.yml/badge.svg)](https://github.com/SupaM1/NSW-Transit/actions/workflows/CI.yml)
 [![Latest release](https://img.shields.io/github/v/release/SupaM1/NSW-Transit)](https://github.com/SupaM1/NSW-Transit/releases/latest)
 [![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
-
-A free, open-source, ad-free public transport app for New South Wales,
-Australia — buses **and school bus services**.
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Platform](https://img.shields.io/badge/platform-Android-brightgreen.svg)](#)
+[![Built with Flutter](https://img.shields.io/badge/built%20with-Flutter-02569B.svg)](https://flutter.dev)
 
 ## Why this exists
 
@@ -26,88 +26,53 @@ quietly collect usage data. This app does neither:
 
 See [PRIVACY.md](PRIVACY.md) for the full picture.
 
-## Features (current)
+## Features
 
-- Find public transport stops near your current location (any mode).
-- See live, real-time departures at each nearby stop.
-- School bus services are clearly identified with their own badge, and
-  can be filtered to "school buses only".
+- 📍 **Nearby stops** — finds public transport stops close to your location, across any mode
+- 🚌 **Live departures** — real-time departure times at each nearby stop
+- 🎒 **School bus aware** — school bus services are badged separately and can be filtered out (or in) on their own
+- 🔒 **Private by design** — no accounts, no tracking, no analytics; your API key stays on your device
 
-## Requirements to run this app
+## Getting started
 
-Transport for NSW requires every application to use its own free API key
-— this project does not and will not ship a shared key. You need to:
+NSW Transit needs a free Transport for NSW Open Data API key — you bring your own, nothing is bundled with the app.
 
-1. Register for a free key at
-   [opendata.transport.nsw.gov.au](https://opendata.transport.nsw.gov.au/data/user/register)
-   (no payment details required, takes about a minute, subscribe to the
-   "Trip Planner APIs" product once registered).
-2. Paste that key into the app on first launch (or later, in Settings).
+1. Grab a free API key from the [Transport for NSW Open Data Hub](https://opendata.transport.nsw.gov.au/)
+2. Install NSW Transit
+3. On first launch and paste in your API key
+4. That's it — the app stores the key locally via `shared_preferences` and talks directly to the TfNSW API
 
-Your key is stored only in this app's local storage on your device.
+## Tech stack
 
-## Getting started (development)
+- **Flutter (Dart)** — Android only for now
+- **TfNSW Trip Planner API** — `coord` (nearby stops) and `departure_mon` (live departures) endpoints
+- **`shared_preferences`** — local-only storage for your API key
+- **GitHub Actions** — CI
 
-This is a [Flutter](https://flutter.dev) app. **Android is the only
-supported platform for now** — iOS and other platforms may be added later.
-Android-specific in `lib/`.
+## Building from source
 
 ```bash
 flutter pub get
-flutter run       # pick a connected Android device or emulator
-flutter build apk # release build
+flutter run
+# or, for a release APK:
+flutter build apk
 ```
-
-## Architecture
-
-- `lib/core/tfnsw_client.dart` — minimal HTTP client for the TfNSW Trip
-  Planner API (`coord` for nearby stops, `departure_mon` for live
-  departures). No other network calls exist anywhere in the app.
-- `lib/core/transport_mode.dart` — maps the API's
-  `transportation.product.class` code to a transport mode. Class `11` is
-  Transport for NSW's own code for **School Bus** services (confirmed in
-  the official Trip Planner API manual); `1` = Train, `4` = Light Rail,
-  `5` = Bus, `7` = Coach, `9` = Ferry.
-- `lib/core/settings_store.dart` — stores the user's API key in local
-  device preferences (`shared_preferences`). Nothing else is persisted.
-- `lib/screens/` — onboarding (API key entry), the nearby-departures
-  screen, and settings.
-
-## Roadmap
-
-- **iOS.** Nothing in `lib/` is Android-specific — adding iOS later is
-  just a matter of running `flutter create --platforms=ios .` to
-  regenerate the platform folder and testing on a device/simulator
-  (requires a Mac with Xcode).
-- **Web — with a caveat.** Transport for NSW's Open Data API does not
-  send CORS headers, so every browser blocks a web page from fetching it
-  directly; this is a browser security rule, not a bug in this project.
-  A web build would need requests routed through some kind of relay,
-  which cuts against this project's "no backend, full stop" design. If
-  it's ever added, it should be a stateless, non-logging CORS relay that
-  people can self-host, kept clearly separate from the no-backend
-  Android/iOS apps.
-- Trip planning (A→B journeys) and saved favourite stops/routes.
-
-## Known limitations
-
-This is an early version — Android only, no trip planner, no saved
-favourites yet (see [Roadmap](#roadmap)).
+## [Roadmap](https://github.com/users/SupaM1/projects/2)
 
 ## Contributing
 
-Issues and pull requests are welcome. Please keep to the project's core
-constraints when contributing: no ads, no analytics/telemetry, no
-mandatory accounts, and no backend server that sees user data.
+PRs are welcome, as long as they keep to the project's non-negotiables:
 
-## License
-
-Licensed under the GNU General Public License v3.0 or later — see
-[LICENSE](LICENSE). This keeps the project and any derivatives free and
-open, including any app built from this code.
+- No ads
+- No telemetry or analytics
+- No mandatory accounts
+- No server in the middle that sees user data
+  Open an issue first for anything bigger than a small fix, so we're aligned before you put the work in.
 
 ## Disclaimer
 
-This is an independent, community project and is not affiliated with, or
-endorsed by, Transport for NSW. Data is sourced from the TfNSW Open Data
-Hub under its [data licence](https://opendata.transport.nsw.gov.au/datalicence).
+NSW Transit is an independent, community-built project. It is **not affiliated with, endorsed by, or supported by Transport for NSW**. Data is sourced from TfNSW's public Open Data API under their terms of use.
+
+## License
+
+GPL-3.0-or-later — see [LICENSE](LICENSE).

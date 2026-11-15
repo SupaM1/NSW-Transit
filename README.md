@@ -6,8 +6,7 @@
 [![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 
 A free, open-source, ad-free public transport app for New South Wales,
-Australia — covering trains, metro, buses, light rail, ferries, coaches
-**and school bus services**.
+Australia — buses **and school bus services**.
 
 ## Why this exists
 

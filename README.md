@@ -1,5 +1,4 @@
 # NSW Transit
-# NSW Transit
 
 [![Build status](https://github.com/SupaM1/NSW-Transit/actions/workflows/CI.yml/badge.svg)](https://github.com/SupaM1/NSW-Transit/actions/workflows/CI.yml)
 [![Latest release](https://img.shields.io/github/v/release/SupaM1/NSW-Transit)](https://github.com/SupaM1/NSW-Transit/releases/latest)

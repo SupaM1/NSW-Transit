@@ -56,8 +56,8 @@ flutter run
 # or, for a release APK:
 flutter build apk
 ```
-## [Roadmap](https://github.com/users/SupaM1/projects/2)
-
+## Roadmap
+The Roadmap is avaliable on [GitHub Projects](https://github.com/users/SupaM1/projects/2).
 ## Contributing
 
 PRs are welcome, as long as they keep to the project's non-negotiables:

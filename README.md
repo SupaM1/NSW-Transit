@@ -6,6 +6,24 @@
 [![Platform](https://img.shields.io/badge/platform-Android-brightgreen.svg)](https://github.com/SupaM1/NSW-Transit/releases)
 [![Built with Flutter](https://img.shields.io/badge/built%20with-Flutter-02569B.svg)](https://flutter.dev)
 
+
+
+## Features
+
+- 📍 **Nearby stops** — finds public transport stops close to your location, across any mode
+- 🚌 **Live departures** — real-time departure times at each nearby stop
+- 🎒 **School bus aware** — school bus services are badged separately and can be filtered out (or in) on their own
+- 🔒 **Private by design** — no accounts, no tracking, no analytics; your API key stays on your device
+
+## Getting started
+
+NSW Transit needs a free Transport for NSW Open Data API key — you bring your own, nothing is bundled with the app.
+
+1. Grab a free API key from the [Transport for NSW Open Data Hub](https://opendata.transport.nsw.gov.au/)
+2. Install NSW Transit (See [Installation](#installation))
+3. On first launch and paste in your API key
+4. That's it — the app stores the key locally via `shared_preferences` and talks directly to the TfNSW API
+   
 ## Why this exists
 
 The official apps and most third-party alternatives are funded by ads or
@@ -24,23 +42,6 @@ quietly collect usage data. This app does neither:
   code.
 
 See [PRIVACY.md](PRIVACY.md) for the full picture.
-
-## Features
-
-- 📍 **Nearby stops** — finds public transport stops close to your location, across any mode
-- 🚌 **Live departures** — real-time departure times at each nearby stop
-- 🎒 **School bus aware** — school bus services are badged separately and can be filtered out (or in) on their own
-- 🔒 **Private by design** — no accounts, no tracking, no analytics; your API key stays on your device
-
-## Getting started
-
-NSW Transit needs a free Transport for NSW Open Data API key — you bring your own, nothing is bundled with the app.
-
-1. Grab a free API key from the [Transport for NSW Open Data Hub](https://opendata.transport.nsw.gov.au/)
-2. Install NSW Transit
-3. On first launch and paste in your API key
-4. That's it — the app stores the key locally via `shared_preferences` and talks directly to the TfNSW API
-
 ## Installation
 
 [<img src="https://github.com/machiav3lli/oandbackupx/blob/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png?raw=true"

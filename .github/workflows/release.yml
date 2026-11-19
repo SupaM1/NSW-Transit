@@ -13,10 +13,17 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+
+      - name: Sync pubspec.yaml version with this release tag
+        run: |
+          VERSION_NAME="${GITHUB_REF_NAME#v}"
+          sed -i "s/^version: .*/version: ${VERSION_NAME}+${{ github.run_number }}/" pubspec.yaml
+
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.50.0'

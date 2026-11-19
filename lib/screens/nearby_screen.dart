@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:material_ui/material_ui.dart';
@@ -78,6 +79,14 @@ class _NearbyScreenState extends State<NearbyScreen> with WidgetsBindingObserver
   final _schoolBusIconKey = GlobalKey();
   OverlayEntry? _schoolBusTipEntry;
 
+  // Stops the user has starred, persisted on-device. A starred stop shows
+  // up both in the Starred section at the top of the list and in its usual
+  // distance-sorted spot further down.
+  Set<String> _starredStopIds = {};
+  bool _starredSectionExpanded = true;
+  final _starredSectionKey = GlobalKey();
+  OverlayEntry? _starredTipEntry;
+
   ExpansibleController _controllerFor(String stopId) {
     return _tileControllers.putIfAbsent(stopId, () => ExpansibleController());
   }
@@ -96,6 +105,9 @@ class _NearbyScreenState extends State<NearbyScreen> with WidgetsBindingObserver
     _settings.getIncludeSchoolBuses().then((value) {
       if (mounted) setState(() => _includeSchoolBuses = value);
     });
+    _settings.getStarredStopIds().then((ids) {
+      if (mounted) setState(() => _starredStopIds = ids);
+    });
     _maybeShowSchoolBusTip();
     _load();
   }
@@ -106,7 +118,74 @@ class _NearbyScreenState extends State<NearbyScreen> with WidgetsBindingObserver
     _tickTimer?.cancel();
     _refreshTimer?.cancel();
     _schoolBusTipEntry?.remove();
+    _starredTipEntry?.remove();
     super.dispose();
+  }
+
+  void _toggleStarred(String stopId) {
+    final wasEmpty = _starredStopIds.isEmpty;
+    setState(() {
+      if (_starredStopIds.contains(stopId)) {
+        _starredStopIds.remove(stopId);
+      } else {
+        _starredStopIds.add(stopId);
+      }
+    });
+    _settings.setStarredStopIds(_starredStopIds);
+    if (wasEmpty && _starredStopIds.isNotEmpty) {
+      _maybeShowStarredTip();
+    }
+  }
+
+  /// Shows a one-time explainer bubble pointing at the new Starred section,
+  /// right after the user stars their very first stop. Never shown again
+  /// once dismissed.
+  void _maybeShowStarredTip() async {
+    final hasSeen = await _settings.getHasSeenStarredTip();
+    if (hasSeen || !mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final renderBox = _starredSectionKey.currentContext?.findRenderObject() as RenderBox?;
+      if (renderBox == null) return;
+
+      final sectionPosition = renderBox.localToGlobal(Offset.zero);
+      final sectionSize = renderBox.size;
+      final screenWidth = MediaQuery.of(context).size.width;
+
+      const bubbleWidth = 260.0;
+      final arrowCenterX = sectionPosition.dx + sectionSize.width / 2;
+      final bubbleLeft = (arrowCenterX - bubbleWidth / 2).clamp(12.0, screenWidth - bubbleWidth - 12.0);
+      final arrowLeftOffset = (arrowCenterX - bubbleLeft - 8).clamp(12.0, bubbleWidth - 28.0);
+
+      void dismiss() {
+        _starredTipEntry?.remove();
+        _starredTipEntry = null;
+        _settings.setHasSeenStarredTip(true);
+      }
+
+      final entry = OverlayEntry(
+        builder: (context) => Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(behavior: HitTestBehavior.translucent, onTap: dismiss),
+            ),
+            Positioned(
+              top: sectionPosition.dy + sectionSize.height + 4,
+              left: bubbleLeft,
+              width: bubbleWidth,
+              child: _SpeechBubble(
+                message: 'Your starred stops will appear here.',
+                arrowLeftOffset: arrowLeftOffset,
+                onDismiss: dismiss,
+              ),
+            ),
+          ],
+        ),
+      );
+      _starredTipEntry = entry;
+      Overlay.of(context).insert(entry);
+    });
   }
 
   /// Shows a one-time explainer bubble pointing at the school bus button,
@@ -383,71 +462,71 @@ class _NearbyScreenState extends State<NearbyScreen> with WidgetsBindingObserver
               ),
           ],
         ),
-actions: [
-IconButton(
-tooltip: 'Expand all',
-icon: const Icon(Icons.unfold_more),
-onPressed: _expandAll,
-),
-IconButton(
-tooltip: 'Settings',
-icon: const Icon(Icons.settings),
-onPressed: _openSettings,
-),
-],
-),
-body: Column(
-children: [
-if (_stops.isNotEmpty) _buildFilterBar(context),
-Expanded(child: _buildBody()),
-],
-),
-);
-}
+        actions: [
+          IconButton(
+            tooltip: 'Expand all',
+            icon: const Icon(Icons.unfold_more),
+            onPressed: _expandAll,
+          ),
+          IconButton(
+            tooltip: 'Settings',
+            icon: const Icon(Icons.settings),
+            onPressed: _openSettings,
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          if (_stops.isNotEmpty) _buildFilterBar(context),
+          Expanded(child: _buildBody()),
+        ],
+      ),
+    );
+  }
 
-Widget _buildFilterBar(BuildContext context) {
-return Padding(
-padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-child: Align(
-alignment: Alignment.centerLeft,
-child: Wrap(
-spacing: 8,
-children: [
-_buildTimeFilterChip(context),
-_buildSchoolBusFilterChip(context),
-],
-),
-),
-);
-}
+  Widget _buildFilterBar(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Wrap(
+          spacing: 8,
+          children: [
+            _buildTimeFilterChip(context),
+            _buildSchoolBusFilterChip(context),
+          ],
+        ),
+      ),
+    );
+  }
 
-Widget _buildTimeFilterChip(BuildContext context) {
-final selectedAt = _selectedAt;
-return FilterChip(
-avatar: const Icon(Icons.access_time, size: 18),
-label: Text(selectedAt != null ? _formatSelectedAt(selectedAt) : 'Time'),
-selected: selectedAt != null,
-showCheckmark: false,
-onSelected: (_) => _pickDateTime(),
-deleteIcon: selectedAt != null ? const Icon(Icons.close, size: 18) : null,
-onDeleted: selectedAt != null ? _clearSelectedTime : null,
-);
-}
+  Widget _buildTimeFilterChip(BuildContext context) {
+    final selectedAt = _selectedAt;
+    return FilterChip(
+      avatar: const Icon(Icons.access_time, size: 18),
+      label: Text(selectedAt != null ? _formatSelectedAt(selectedAt) : 'Time'),
+      selected: selectedAt != null,
+      showCheckmark: false,
+      onSelected: (_) => _pickDateTime(),
+      deleteIcon: selectedAt != null ? const Icon(Icons.close, size: 18) : null,
+      onDeleted: selectedAt != null ? _clearSelectedTime : null,
+    );
+  }
 
-Widget _buildSchoolBusFilterChip(BuildContext context) {
-return FilterChip(
-key: _schoolBusIconKey,
-tooltip: _includeSchoolBuses ? 'Hide school buses' : 'Show school buses too',
-avatar: const Icon(Icons.school, size: 18),
-label: const Text('School buses'),
-selected: _includeSchoolBuses,
-showCheckmark: false,
-onSelected: (value) {
-setState(() => _includeSchoolBuses = value);
-_settings.setIncludeSchoolBuses(value);
-},
-);
-}
+  Widget _buildSchoolBusFilterChip(BuildContext context) {
+    return FilterChip(
+      key: _schoolBusIconKey,
+      tooltip: _includeSchoolBuses ? 'Hide school buses' : 'Show school buses too',
+      avatar: const Icon(Icons.school, size: 18),
+      label: const Text('School buses'),
+      selected: _includeSchoolBuses,
+      showCheckmark: false,
+      onSelected: (value) {
+        setState(() => _includeSchoolBuses = value);
+        _settings.setIncludeSchoolBuses(value);
+      },
+    );
+  }
 
   Widget _buildBody() {
     if (_loading) {
@@ -494,19 +573,27 @@ _settings.setIncludeSchoolBuses(value);
       );
     }
 
+    final starredResults = visibleResults.where((r) => _starredStopIds.contains(r.stop.id)).toList();
+    final hasStarred = starredResults.isNotEmpty;
+
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.builder(
         padding: const EdgeInsets.all(12),
-        itemCount: visibleResults.length,
+        itemCount: visibleResults.length + (hasStarred ? 1 : 0),
         itemBuilder: (context, index) {
-          final result = visibleResults[index];
+          if (hasStarred && index == 0) {
+            return _buildStarredSection(starredResults);
+          }
+          final result = visibleResults[index - (hasStarred ? 1 : 0)];
           final stopId = result.stop.id;
           return _StopCard(
             key: ValueKey(stopId),
             result: result,
             controller: _controllerFor(stopId),
             initiallyExpanded: !_collapsedStopIds.contains(stopId),
+            starred: _starredStopIds.contains(stopId),
+            onToggleStarred: () => _toggleStarred(stopId),
             onExpansionChanged: (expanded) {
               setState(() {
                 if (expanded) {
@@ -521,12 +608,57 @@ _settings.setIncludeSchoolBuses(value);
       ),
     );
   }
+
+  /// The pinned group of starred-and-currently-nearby stops shown at the top
+  /// of the list. Collapsible on its own, separately from each stop card's
+  /// own expand state, so you can quickly collapse it to skip past your
+  /// stars and get straight to the regular list below.
+  Widget _buildStarredSection(List<_StopResult> starredResults) {
+    return Card(
+      key: const ValueKey('starred-section'),
+      margin: const EdgeInsets.only(bottom: 12),
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        initiallyExpanded: _starredSectionExpanded,
+        onExpansionChanged: (expanded) => setState(() => _starredSectionExpanded = expanded),
+        leading: Icon(Icons.star, color: Colors.amber[700], key: _starredSectionKey),
+        title: Text(
+          'Starred (${starredResults.length})',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        children: starredResults.map((result) {
+          final stopId = result.stop.id;
+          final tileId = 'starred-$stopId';
+          return _StopCard(
+            key: ValueKey(tileId),
+            result: result,
+            controller: _controllerFor(tileId),
+            initiallyExpanded: !_collapsedStopIds.contains(tileId),
+            starred: true,
+            onToggleStarred: () => _toggleStarred(stopId),
+            onExpansionChanged: (expanded) {
+              setState(() {
+                if (expanded) {
+                  _collapsedStopIds.remove(tileId);
+                } else {
+                  _collapsedStopIds.add(tileId);
+                }
+              });
+            },
+          );
+        }).toList(),
+      ),
+    );
+  }
 }
 
 class _StopCard extends StatelessWidget {
   final _StopResult result;
   final ExpansibleController controller;
   final bool initiallyExpanded;
+  final bool starred;
+  final VoidCallback onToggleStarred;
   final ValueChanged<bool> onExpansionChanged;
 
   const _StopCard({
@@ -534,6 +666,8 @@ class _StopCard extends StatelessWidget {
     required this.result,
     required this.controller,
     required this.initiallyExpanded,
+    required this.starred,
+    required this.onToggleStarred,
     required this.onExpansionChanged,
   });
 
@@ -547,6 +681,11 @@ class _StopCard extends StatelessWidget {
         controller: controller,
         initiallyExpanded: initiallyExpanded,
         onExpansionChanged: onExpansionChanged,
+        leading: IconButton(
+          tooltip: starred ? 'Unstar this stop' : 'Star this stop',
+          icon: Icon(starred ? Icons.star : Icons.star_border, color: starred ? Colors.amber[700] : null),
+          onPressed: onToggleStarred,
+        ),
         title: Text(stop.name, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
         subtitle: stop.distanceMetres != null ? Text('${stop.distanceMetres!.round()} m away') : null,
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -564,6 +703,7 @@ class _StopCard extends StatelessWidget {
     );
   }
 }
+
 /// A small, non-interactive preview map showing where a stop is, drawn from
 /// OpenStreetMap's public tiles. Only ever built while its [_StopCard] is
 /// expanded (ExpansionTile doesn't build collapsed children), so a stop's
@@ -632,6 +772,7 @@ class _StopMiniMap extends StatelessWidget {
     );
   }
 }
+
 class _DepartureRow extends StatelessWidget {
   final Departure departure;
   const _DepartureRow({required this.departure});

@@ -46,6 +46,9 @@ NSW Transit needs a free Transport for NSW Open Data API key — you bring your 
 [<img src="https://github.com/machiav3lli/oandbackupx/blob/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png?raw=true"
     alt="Get it on GitHub"
     height="80">](https://github.com/SupaM1/NSW-Transit/releases)
+    [<img src="https://github.com/ImranR98/Obtainium/blob/main/assets/graphics/badge_obtainium.png?raw=true"
+    alt="Get it on Obtainium"
+    height="80">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22au.org.nswtransit.nsw_transit%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FSupaM1%2FNSW-Transit%22%2C%22author%22%3A%22SupaM1%22%2C%22name%22%3A%22NSW%20Transit%22%7D)
     
 ## Tech stack
 

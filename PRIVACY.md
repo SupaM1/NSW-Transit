@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated:** 2026-11-12
+**Last updated:** 2026-11-19
 
 NSW Transit is designed so there is as little to say here as possible.
 
@@ -21,10 +21,12 @@ of this app never receive any information about you or your use of it.
 
 ## What is sent over the network, and to whom
 
-Every network request this app makes goes directly from your device to
+Every network request this app makes goes directly from your device to one
+of two places:
+
 **Transport for NSW's official Open Data API**
 (`api.transport.nsw.gov.au`), using the API key you registered yourself.
-No other server is involved. The requests sent are:
+The requests sent are:
 
 - Your current GPS coordinates, to look up stops near you.
 - A stop ID, to look up upcoming departures at that stop.
@@ -35,6 +37,13 @@ Transport for NSW's handling of this data is governed by their own
 [Privacy Policy](https://opendata.transport.nsw.gov.au/sites/default/files/2024-09/TfNSW-Privacy.pdf)
 and [Open Data Portal Terms](https://opendata.transport.nsw.gov.au/sites/default/files/2024-09/TfNSW-Open-Data-Portal-Terms.pdf),
 which this app's developer(s) do not control.
+
+**OpenStreetMap's public map tile server** (`tile.openstreetmap.org`), to
+draw the small map shown when you expand a stop. Only that stop's own
+public location (its latitude/longitude, already published by Transport
+for NSW) is sent — never your GPS position or your API key. See
+[OpenStreetMap's Privacy Policy](https://osmfoundation.org/wiki/Privacy_Policy)
+for how they handle these requests.
 
 ## Location permission
 

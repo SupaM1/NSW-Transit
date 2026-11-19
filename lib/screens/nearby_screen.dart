@@ -1,5 +1,6 @@
 import 'dart:async';
-
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:material_ui/material_ui.dart';
 
 import '../core/location_service.dart';
@@ -550,6 +551,7 @@ class _StopCard extends StatelessWidget {
         subtitle: stop.distanceMetres != null ? Text('${stop.distanceMetres!.round()} m away') : null,
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         children: [
+          _StopMiniMap(stop: stop),
           if (result.error != null)
             Align(
               alignment: Alignment.centerLeft,
@@ -562,7 +564,74 @@ class _StopCard extends StatelessWidget {
     );
   }
 }
+/// A small, non-interactive preview map showing where a stop is, drawn from
+/// OpenStreetMap's public tiles. Only ever built while its [_StopCard] is
+/// expanded (ExpansionTile doesn't build collapsed children), so a stop's
+/// map tiles aren't fetched until the user actually opens that card.
+class _StopMiniMap extends StatelessWidget {
+  final NearbyStop stop;
 
+  const _StopMiniMap({required this.stop});
+
+  @override
+  Widget build(BuildContext context) {
+    final position = LatLng(stop.latitude, stop.longitude);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(
+          height: 140,
+          child: IgnorePointer(
+            child: Stack(
+              children: [
+                FlutterMap(
+                  options: MapOptions(
+                    initialCenter: position,
+                    initialZoom: 16,
+                    interactionOptions: const InteractionOptions(flags: InteractiveFlag.none),
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'au.org.nswtransit.nsw_transit',
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: position,
+                          width: 32,
+                          height: 32,
+                          child: Icon(
+                            Icons.location_on,
+                            color: Theme.of(context).colorScheme.primary,
+                            size: 32,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                Positioned(
+                  right: 4,
+                  bottom: 2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    color: Colors.white.withValues(alpha: 0.7),
+                    child: const Text(
+                      '© OpenStreetMap contributors',
+                      style: TextStyle(fontSize: 9, color: Colors.black87),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 class _DepartureRow extends StatelessWidget {
   final Departure departure;
   const _DepartureRow({required this.departure});

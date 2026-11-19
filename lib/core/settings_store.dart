@@ -7,6 +7,8 @@ class SettingsStore {
   static const _apiKeyPref = 'tfnsw_api_key';
   static const _includeSchoolBusesPref = 'include_school_buses';
   static const _hasSeenSchoolBusTipPref = 'has_seen_school_bus_tip';
+  static const _starredStopIdsPref = 'starred_stop_ids';
+  static const _hasSeenStarredTipPref = 'has_seen_starred_tip';
 
   Future<String?> getApiKey() async {
     final prefs = await SharedPreferences.getInstance();
@@ -46,5 +48,28 @@ class SettingsStore {
   Future<void> setHasSeenSchoolBusTip(bool seen) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_hasSeenSchoolBusTipPref, seen);
+  }
+
+  /// IDs of stops the user has starred, stored on-device only.
+  Future<Set<String>> getStarredStopIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getStringList(_starredStopIdsPref) ?? const []).toSet();
+  }
+
+  Future<void> setStarredStopIds(Set<String> stopIds) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_starredStopIdsPref, stopIds.toList());
+  }
+
+  /// Whether the one-time explainer bubble for the Starred section has
+  /// already been shown and dismissed.
+  Future<bool> getHasSeenStarredTip() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_hasSeenStarredTipPref) ?? false;
+  }
+
+  Future<void> setHasSeenStarredTip(bool seen) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_hasSeenStarredTipPref, seen);
   }
 }
